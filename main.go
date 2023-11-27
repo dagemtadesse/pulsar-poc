@@ -4,49 +4,69 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/labstack/echo/v4"
+	"net/http"
 	"pulsar/poc/containers"
 )
 
 func main() {
-	ctx := context.Background()
-
 	manager, err := containers.NewManager()
 	if err != nil {
 		panic(err)
 	}
 
-	imageName := "your-serverless-app:latest"
-	contextPath := "./app" // path to your GoLang application
+	server := echo.New()
+	bgCtx := context.Background()
 
-	fmt.Println("Creating Docker image for the project")
-	err = manager.BuildImage(ctx, contextPath, imageName)
-	if err != nil {
-		fmt.Printf("Failed to build Docker image: %v\n", err)
-		return
-	}
+	server.POST("project/:name", func(ctx echo.Context) error {
+		imageName := ctx.Param("name")
+		contextPath := "./app" // path to your GoLang application
 
-	fmt.Println("Creating Docker Container for the project")
-	containerId, err := manager.CreateContainer(ctx, imageName)
-	if err != nil {
-		fmt.Printf("Failed to create Docker container: %v\n", err)
-		return
-	}
+		fmt.Println("Creating Docker image for the project")
+		err = manager.BuildImage(bgCtx, contextPath, imageName)
+		if err != nil {
+			return ctx.String(http.StatusInternalServerError,
+				fmt.Sprintf("Failed to build Docker image: %v\n", err))
+		}
 
-	fmt.Println("Starting starting the project container")
-	err = manager.StartContainer(ctx, containerId)
-	if err != nil {
-		fmt.Printf("Failed to start Docker container: %v\n", err)
-	}
+		containerId, err := manager.CreateContainer(bgCtx, imageName)
+		if err != nil {
+			return ctx.String(http.StatusInternalServerError,
+				fmt.Sprintf("Failed to create Docker container: %v\n", err))
+		}
+		return ctx.String(http.StatusOK, fmt.Sprintf("Project build with conatiner id: %s", containerId))
+	})
 
-	fmt.Println("Stopping the project container")
-	err = manager.StopContainer(ctx, containerId)
-	if err != nil {
-		fmt.Printf("Failed to start Docker container: %v\n", err)
-	}
+	server.POST("project/:projectId/start", func(ctx echo.Context) error {
+		containerId := ctx.Param("projectId")
 
-	fmt.Println("Deleting the project container")
-	err = manager.DeleteContainer(ctx, containerId)
-	if err != nil {
-		fmt.Printf("Failed to start Docker container: %v\n", err)
-	}
+		err = manager.StartContainer(bgCtx, containerId)
+		if err != nil {
+			return ctx.String(http.StatusInternalServerError,
+				fmt.Sprintf("Failed to start Docker container: %v\n", err))
+		}
+		return ctx.String(http.StatusOK, "Project started successfully")
+	})
+
+	server.POST("project/:projectId/stop", func(ctx echo.Context) error {
+		containerId := ctx.Param("projectId")
+		err = manager.StopContainer(bgCtx, containerId)
+		if err != nil {
+			return ctx.String(http.StatusInternalServerError,
+				fmt.Sprintf("Failed to stop project container: %v", err))
+		}
+		return ctx.String(http.StatusOK, "Project stopped successfully")
+	})
+
+	server.DELETE("project/:projectId", func(ctx echo.Context) error {
+		containerId := ctx.Param("projectId")
+		err = manager.DeleteContainer(bgCtx, containerId)
+		if err != nil {
+			return ctx.String(http.StatusInternalServerError,
+				fmt.Sprintf("Failed to remove project container: %v", err))
+		}
+		return ctx.String(http.StatusOK, "Project removed successfully")
+	})
+
+	server.Logger.Fatal(server.Start(":3001"))
 }
