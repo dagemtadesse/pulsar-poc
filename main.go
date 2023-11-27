@@ -3,9 +3,9 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
+	httptrigger "pulsar/poc/httpTrigger"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -84,23 +84,24 @@ func createAndStartContainer(ctx context.Context, cli *client.Client, imageName 
 }
 
 func main() {
-	ctx := context.Background()
+	httptrigger.RunServer()
+	// ctx := context.Background()
 
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		panic(err)
-	}
+	// cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	imageName := "your-serverless-app:latest"
-	contextPath := "./app" // path to your GoLang application
+	// imageName := "your-serverless-app:latest"
+	// contextPath := "./app" // path to your GoLang application
 
-	err = buildDockerImage(ctx, cli, imageName, contextPath)
-	if err != nil {
-		fmt.Printf("Failed to build Docker image: %v\n", err)
-		return
-	}
+	// err = buildDockerImage(ctx, cli, imageName, contextPath)
+	// if err != nil {
+	// 	fmt.Printf("Failed to build Docker image: %v\n", err)
+	// 	return
+	// }
 
-	createAndStartContainer(ctx, cli, imageName)
+	// createAndStartContainer(ctx, cli, imageName)
 
-	fmt.Printf("Docker image '%s' built successfully!\n", imageName)
+	// fmt.Printf("Docker image '%s' built successfully!\n", imageName)
 }
