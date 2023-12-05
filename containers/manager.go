@@ -94,6 +94,10 @@ func (cm *ContainerManager) CreateContainer(ctx context.Context, imageName strin
 
 func (cm *ContainerManager) StartContainer(ctx context.Context, containerId string) error {
 	err := cm.cli.ContainerStart(ctx, containerId, types.ContainerStartOptions{})
+	if err != nil {
+		return err
+	}
+
 	return err
 }
 
@@ -114,6 +118,15 @@ func (cm *ContainerManager) IsRunning(ctx context.Context, containerId string) b
 	}
 
 	return container.State.Running
+}
+
+func (cm *ContainerManager) GetStatus(ctx context.Context, containerId string) string {
+	container, err := cm.cli.ContainerInspect(ctx, containerId)
+	if err != nil {
+		return ""
+	}
+
+	return container.State.Status
 }
 
 func checkError(reader io.Reader) error {

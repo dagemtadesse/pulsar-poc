@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"pulsar/poc/builder"
 	"pulsar/poc/containers"
+	"pulsar/poc/services"
+	"time"
 
 	"github.com/labstack/echo/v4"
 )
@@ -77,6 +79,34 @@ func main() {
 				fmt.Sprintf("Failed to remove project container: %v", err))
 		}
 		return ctx.String(http.StatusOK, "Project removed successfully")
+	})
+
+	server.Any("*", echo.WrapHandler(services.NewProxy()), func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(ctx echo.Context) error {
+			req := ctx.Request()
+			headers := req.Header
+			appId := headers.Get("x-App-Id")
+
+			containerManager, _ := containers.NewManager()
+			if !containerManager.IsRunning(ctx.Request().Context(), appId) {
+				err := containerManager.StartContainer(ctx.Request().Context(), appId)
+				if err != nil {
+					return ctx.String(http.StatusInternalServerError, fmt.Sprintf("Unable to start container %v", err))
+				}
+				fmt.Println("Container Started")
+			}
+			time.Sleep(500 * time.Millisecond)
+			go func() {
+				err = containerManager.StopContainer(context.Background(), appId)
+				if err != nil {
+					fmt.Printf("Unable to stop container %v\n", err)
+				}
+				fmt.Println("Container Stopped")
+			}()
+
+			time.Sleep(500 * time.Microsecond)
+			return next(ctx)
+		}
 	})
 
 	server.Logger.Fatal(server.Start(":3001"))
