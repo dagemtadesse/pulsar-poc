@@ -6,13 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/go-connections/nat"
-	"io"
-	"os"
 )
 
 type ErrorLine struct {
@@ -34,7 +35,9 @@ func NewManager() (*ContainerManager, error) {
 }
 
 func (cm *ContainerManager) BuildImage(ctx context.Context, contextPath string, projectName string) error {
-	err := os.Chdir(contextPath)
+	currentWD, err := os.Getwd()
+
+	err = os.Chdir(contextPath)
 	if err != nil {
 		return err
 	}
@@ -59,6 +62,7 @@ func (cm *ContainerManager) BuildImage(ctx context.Context, contextPath string, 
 	}
 
 	defer buildResponse.Body.Close()
+	defer os.Chdir(currentWD)
 
 	// Print build output
 	return checkError(buildResponse.Body)
@@ -101,6 +105,15 @@ func (cm *ContainerManager) StopContainer(ctx context.Context, containerId strin
 func (cm *ContainerManager) DeleteContainer(ctx context.Context, containerId string) error {
 	err := cm.cli.ContainerRemove(ctx, containerId, types.ContainerRemoveOptions{})
 	return err
+}
+
+func (cm *ContainerManager) IsRunning(ctx context.Context, containerId string) bool {
+	container, err := cm.cli.ContainerInspect(ctx, containerId)
+	if err != nil {
+		return false
+	}
+
+	return container.State.Running
 }
 
 func checkError(reader io.Reader) error {
